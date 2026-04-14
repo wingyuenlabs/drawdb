@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Tab,
   ObjectType,
@@ -12,33 +12,104 @@ import {
   IconMinus,
   IconDeleteStroked,
   IconKeyStroked,
+  IconLock,
+  IconUnlock,
 } from "@douyinfe/semi-icons";
 import { Popover, Tag, Button, SideSheet } from "@douyinfe/semi-ui";
 import { useLayout, useSettings, useDiagram, useSelect } from "../../hooks";
 import TableInfo from "../EditorSidePanel/TablesTab/TableInfo";
 import { useTranslation } from "react-i18next";
-import { dbToTypes } from "../../data/datatypes";
+import { resolveType } from "../../utils/customTypes";
 import { isRtl } from "../../i18n/utils/rtl";
 import i18n from "../../i18n/i18n";
+import { getCommentHeight, getTableHeight } from "../../utils/utils";
 
-export default function Table(props) {
-  const [hoveredField, setHoveredField] = useState(-1);
+export default function Table({
+  tableData,
+  onPointerDown,
+  setHoveredTable,
+  handleGripField,
+  setLinkingLine,
+}) {
+  const [hoveredField, setHoveredField] = useState(null);
   const { database } = useDiagram();
-  const {
-    tableData,
-    onPointerDown,
-    setHoveredTable,
-    handleGripField,
-    setLinkingLine,
-  } = props;
   const { layout } = useLayout();
-  const { deleteTable, deleteField } = useDiagram();
+  const { deleteTable, deleteField, updateTable } = useDiagram();
   const { settings } = useSettings();
   const { t } = useTranslation();
-  const { selectedElement, setSelectedElement } = useSelect();
+  const {
+    selectedElement,
+    setSelectedElement,
+    bulkSelectedElements,
+    setBulkSelectedElements,
+  } = useSelect();
 
-  const height =
-    tableData.fields.length * tableFieldHeight + tableHeaderHeight + 7;
+  const borderColor = useMemo(
+    () => (settings.mode === "light" ? "border-zinc-300" : "border-zinc-600"),
+    [settings.mode],
+  );
+
+  const height = getTableHeight(
+    tableData,
+    settings.tableWidth,
+    settings.showComments,
+  );
+
+  const isSelected = useMemo(() => {
+    return (
+      (selectedElement.id == tableData.id &&
+        selectedElement.element === ObjectType.TABLE) ||
+      bulkSelectedElements.some(
+        (e) => e.type === ObjectType.TABLE && e.id === tableData.id,
+      )
+    );
+  }, [selectedElement, tableData, bulkSelectedElements]);
+
+  const lockUnlockTable = (e) => {
+    const locking = !tableData.locked;
+    updateTable(tableData.id, { locked: locking });
+
+    const lockTable = () => {
+      setSelectedElement({
+        ...selectedElement,
+        element: ObjectType.NONE,
+        id: -1,
+        open: false,
+      });
+      setBulkSelectedElements((prev) =>
+        prev.filter(
+          (el) => el.id !== tableData.id || el.type !== ObjectType.TABLE,
+        ),
+      );
+    };
+
+    const unlockTable = () => {
+      const elementInBulk = {
+        id: tableData.id,
+        type: ObjectType.TABLE,
+        initialCoords: { x: tableData.x, y: tableData.y },
+        currentCoords: { x: tableData.x, y: tableData.y },
+      };
+      if (e.ctrlKey || e.metaKey) {
+        setBulkSelectedElements((prev) => [...prev, elementInBulk]);
+      } else {
+        setBulkSelectedElements([elementInBulk]);
+      }
+      setSelectedElement((prev) => ({
+        ...prev,
+        element: ObjectType.TABLE,
+        id: tableData.id,
+        open: false,
+      }));
+    };
+
+    if (locking) {
+      lockTable();
+    } else {
+      unlockTable();
+    }
+  };
+
   const openEditor = () => {
     if (!layout.sidebar) {
       setSelectedElement((prev) => ({
@@ -62,6 +133,8 @@ export default function Table(props) {
     }
   };
 
+  if (tableData.hidden) return null;
+
   return (
     <>
       <foreignObject
@@ -80,12 +153,7 @@ export default function Table(props) {
                  settings.mode === "light"
                    ? "bg-zinc-100 text-zinc-800"
                    : "bg-zinc-800 text-zinc-200"
-               } ${
-                 selectedElement.id === tableData.id &&
-                 selectedElement.element === ObjectType.TABLE
-                   ? "border-solid border-blue-500"
-                   : "border-zinc-500"
-               }`}
+               } ${isSelected ? "border-solid border-blue-500" : borderColor}`}
           style={{ direction: "ltr" }}
         >
           <div
@@ -93,101 +161,126 @@ export default function Table(props) {
             style={{ backgroundColor: tableData.color }}
           />
           <div
-            className={`overflow-hidden font-bold h-[40px] flex justify-between items-center border-b border-gray-400 ${
+            className={`border-b border-gray-400 ${
               settings.mode === "light" ? "bg-zinc-200" : "bg-zinc-900"
-            }`}
+            } ${tableData.comment && settings.showComments ? "pb-3" : ""}`}
           >
-            <div className=" px-3 overflow-hidden text-ellipsis whitespace-nowrap">
-              {tableData.name}
-            </div>
-            <div className="hidden group-hover:block">
-              <div className="flex justify-end items-center mx-2">
-                <Button
-                  icon={<IconEdit />}
-                  size="small"
-                  theme="solid"
-                  style={{
-                    backgroundColor: "#2f68adb3",
-                    marginRight: "6px",
-                  }}
-                  onClick={openEditor}
-                />
-                <Popover
-                  key={tableData.key}
-                  content={
-                    <div className="popover-theme">
-                      <div className="mb-2">
-                        <strong>{t("comment")}:</strong>{" "}
-                        {tableData.comment === "" ? (
-                          t("not_set")
-                        ) : (
-                          <div>{tableData.comment}</div>
-                        )}
-                      </div>
-                      <div>
-                        <strong
-                          className={`${
-                            tableData.indices.length === 0 ? "" : "block"
-                          }`}
-                        >
-                          {t("indices")}:
-                        </strong>{" "}
-                        {tableData.indices.length === 0 ? (
-                          t("not_set")
-                        ) : (
-                          <div>
-                            {tableData.indices.map((index, k) => (
-                              <div
-                                key={k}
-                                className={`flex items-center my-1 px-2 py-1 rounded ${
-                                  settings.mode === "light"
-                                    ? "bg-gray-100"
-                                    : "bg-zinc-800"
-                                }`}
-                              >
-                                <i className="fa-solid fa-thumbtack me-2 mt-1 text-slate-500"></i>
-                                <div>
-                                  {index.fields.map((f) => (
-                                    <Tag color="blue" key={f} className="me-1">
-                                      {f}
-                                    </Tag>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <Button
-                        icon={<IconDeleteStroked />}
-                        type="danger"
-                        block
-                        style={{ marginTop: "8px" }}
-                        onClick={() => deleteTable(tableData.id)}
-                      >
-                        {t("delete")}
-                      </Button>
-                    </div>
-                  }
-                  position="rightTop"
-                  showArrow
-                  trigger="click"
-                  style={{ width: "200px", wordBreak: "break-word" }}
-                >
+            <div
+              className={`overflow-hidden font-bold h-[40px] flex justify-between items-center`}
+            >
+              <div className="px-3 overflow-hidden text-ellipsis whitespace-nowrap">
+                {tableData.name}
+              </div>
+              <div className="hidden group-hover:block">
+                <div className="flex justify-end items-center mx-2 space-x-1.5">
                   <Button
-                    icon={<IconMore />}
-                    type="tertiary"
+                    icon={tableData.locked ? <IconLock /> : <IconUnlock />}
                     size="small"
+                    theme="solid"
                     style={{
-                      backgroundColor: "#808080b3",
-                      color: "white",
+                      backgroundColor: "#2f68adb3",
                     }}
+                    disabled={layout.readOnly}
+                    onClick={lockUnlockTable}
                   />
-                </Popover>
+                  <Button
+                    icon={<IconEdit />}
+                    size="small"
+                    theme="solid"
+                    style={{
+                      backgroundColor: "#2f68adb3",
+                    }}
+                    onClick={openEditor}
+                  />
+                  <Popover
+                    key={tableData.id}
+                    content={
+                      <div className="popover-theme">
+                        <div className="mb-2">
+                          <strong>{t("comment")}:</strong>{" "}
+                          {tableData.comment === "" ? (
+                            t("not_set")
+                          ) : (
+                            <div>{tableData.comment}</div>
+                          )}
+                        </div>
+                        <div>
+                          <strong
+                            className={`${
+                              tableData.indices.length === 0 ? "" : "block"
+                            }`}
+                          >
+                            {t("indices")}:
+                          </strong>{" "}
+                          {tableData.indices.length === 0 ? (
+                            t("not_set")
+                          ) : (
+                            <div>
+                              {tableData.indices.map((index, k) => (
+                                <div
+                                  key={k}
+                                  className={`flex items-center my-1 px-2 py-1 rounded ${
+                                    settings.mode === "light"
+                                      ? "bg-gray-100"
+                                      : "bg-zinc-800"
+                                  }`}
+                                >
+                                  <i className="fa-solid fa-thumbtack me-2 mt-1 text-slate-500"></i>
+                                  <div>
+                                    {index.fields.map((f) => (
+                                      <Tag
+                                        color="blue"
+                                        key={f}
+                                        className="me-1"
+                                      >
+                                        {f}
+                                      </Tag>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          icon={<IconDeleteStroked />}
+                          type="danger"
+                          block
+                          style={{ marginTop: "8px" }}
+                          onClick={() => deleteTable(tableData.id)}
+                          disabled={layout.readOnly}
+                        >
+                          {t("delete")}
+                        </Button>
+                      </div>
+                    }
+                    position="rightTop"
+                    showArrow
+                    trigger="click"
+                    style={{ width: "200px", wordBreak: "break-word" }}
+                  >
+                    <Button
+                      icon={<IconMore />}
+                      type="tertiary"
+                      size="small"
+                      style={{
+                        backgroundColor: "#808080b3",
+                        color: "white",
+                      }}
+                    />
+                  </Popover>
+                </div>
               </div>
             </div>
+            {tableData.comment && settings.showComments && (
+              <div className="text-xs px-3 line-clamp-5">
+                {tableData.comment}
+              </div>
+            )}
           </div>
+
           {tableData.fields.map((e, i) => {
+            const resolved = resolveType(database, e.type);
             return settings.showFieldSummary ? (
               <Popover
                 key={i}
@@ -198,10 +291,17 @@ export default function Table(props) {
                       style={{ direction: "ltr" }}
                     >
                       <p className="me-4 font-bold">{e.name}</p>
-                      <p className="ms-4">
+                      <p
+                        className={
+                          "ms-4 font-mono " +
+                          (resolved.isCustom ? "" : resolved.color)
+                        }
+                        style={
+                          resolved.isCustom ? { color: resolved.color } : {}
+                        }
+                      >
                         {e.type +
-                          ((dbToTypes[database][e.type].isSized ||
-                            dbToTypes[database][e.type].hasPrecision) &&
+                          ((resolved.isSized || resolved.hasPrecision) &&
                           e.size &&
                           e.size !== ""
                             ? "(" + e.size + ")"
@@ -280,6 +380,7 @@ export default function Table(props) {
   );
 
   function field(fieldData, index) {
+    const fieldResolved = resolveType(database, fieldData.type);
     return (
       <div
         className={`${
@@ -293,13 +394,17 @@ export default function Table(props) {
           setHoveredField(index);
           setHoveredTable({
             tableId: tableData.id,
-            field: index,
+            fieldId: fieldData.id,
           });
         }}
         onPointerLeave={(e) => {
           if (!e.isPrimary) return;
 
-          setHoveredField(-1);
+          setHoveredField(null);
+          setHoveredTable({
+            tableId: null,
+            fieldId: null,
+          });
         }}
         onPointerDown={(e) => {
           // Required for onPointerLeave to trigger when a touch pointer leaves
@@ -313,14 +418,14 @@ export default function Table(props) {
           } flex items-center gap-2 overflow-hidden`}
         >
           <button
-            className="flex-shrink-0 w-[10px] h-[10px] bg-[#2f68adcc] rounded-full"
+            className="shrink-0 w-[10px] h-[10px] bg-[#2f68adcc] rounded-full"
             onPointerDown={(e) => {
               if (!e.isPrimary) return;
 
-              handleGripField(index);
+              handleGripField();
               setLinkingLine((prev) => ({
                 ...prev,
-                startFieldId: index,
+                startFieldId: fieldData.id,
                 startTableId: tableData.id,
                 startX: tableData.x + 15,
                 startY:
@@ -328,14 +433,24 @@ export default function Table(props) {
                   index * tableFieldHeight +
                   tableHeaderHeight +
                   tableColorStripHeight +
-                  12,
+                  getCommentHeight(
+                    tableData.comment,
+                    settings.tableWidth,
+                    settings.showComments,
+                  ) +
+                  14,
                 endX: tableData.x + 15,
                 endY:
                   tableData.y +
                   index * tableFieldHeight +
                   tableHeaderHeight +
                   tableColorStripHeight +
-                  12,
+                  getCommentHeight(
+                    tableData.comment,
+                    settings.tableWidth,
+                    settings.showComments,
+                  ) +
+                  14,
               }));
             }}
           />
@@ -352,23 +467,36 @@ export default function Table(props) {
                 backgroundColor: "#d42020b3",
               }}
               icon={<IconMinus />}
-              onClick={() => deleteField(fieldData, tableData.id)}
+              disabled={layout.readOnly}
+              onClick={() => {
+                if (layout.readOnly) return;
+                deleteField(fieldData, tableData.id);
+              }}
             />
-          ) : (
+          ) : settings.showDataTypes ? (
             <div className="flex gap-1 items-center">
               {fieldData.primary && <IconKeyStroked />}
-              {!fieldData.notNull && <span>?</span>}
-              <span>
+              {!fieldData.notNull && <span className="font-mono">?</span>}
+              <span
+                className={
+                  "font-mono " +
+                  (fieldResolved.isCustom ? "" : fieldResolved.color)
+                }
+                style={
+                  fieldResolved.isCustom
+                    ? { color: fieldResolved.color }
+                    : {}
+                }
+              >
                 {fieldData.type +
-                  ((dbToTypes[database][fieldData.type].isSized ||
-                    dbToTypes[database][fieldData.type].hasPrecision) &&
+                  ((fieldResolved.isSized || fieldResolved.hasPrecision) &&
                   fieldData.size &&
                   fieldData.size !== ""
-                    ? "(" + fieldData.size + ")"
+                    ? `(${fieldData.size})`
                     : "")}
               </span>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     );

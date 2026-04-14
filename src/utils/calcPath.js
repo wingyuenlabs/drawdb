@@ -1,17 +1,37 @@
 import { tableFieldHeight, tableHeaderHeight } from "../data/constants";
+import { getCommentHeight } from "./utils";
 
-export function calcPath(r, tableWidth = 200, zoom = 1) {
+/**
+ * Generates an SVG path string to visually represent a relationship between two fields.
+ *
+ * @param {{
+ *   startTable: { x: number, y: number },
+ *   endTable: { x: number, y: number },
+ *   startFieldIndex: number,
+ *   endFieldIndex: number
+ * }} r - Relationship data.
+ * @param {number} tableWidth - Width of each table (used to calculate horizontal offsets).
+ * @param {number} zoom - Zoom level (used to scale vertical spacing).
+ * @returns {string} SVG path "d" attribute string.
+ */
+export function calcPath(r, tableWidth = 200, zoom = 1, showComments = true) {
+  if (!r) {
+    return "";
+  }
+
   const width = tableWidth * zoom;
   let x1 = r.startTable.x;
   let y1 =
     r.startTable.y +
-    r.startFieldId * tableFieldHeight +
+    r.startFieldIndex * tableFieldHeight +
     tableHeaderHeight +
+    getCommentHeight(r.startTable.comment, tableWidth, showComments) +
     tableFieldHeight / 2;
   let x2 = r.endTable.x;
   let y2 =
     r.endTable.y +
-    r.endFieldId * tableFieldHeight +
+    r.endFieldIndex * tableFieldHeight +
+    getCommentHeight(r.endTable.comment, tableWidth, showComments) +
     tableHeaderHeight +
     tableFieldHeight / 2;
 

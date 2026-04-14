@@ -1,13 +1,10 @@
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { useLayoutEffect } from "react";
 import Editor from "./pages/Editor";
-import Survey from "./pages/Survey";
 import BugReport from "./pages/BugReport";
-import Shortcuts from "./pages/Shortcuts";
 import Templates from "./pages/Templates";
 import LandingPage from "./pages/LandingPage";
 import SettingsContextProvider from "./context/SettingsContext";
-import { useSettings } from "./hooks";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -17,67 +14,16 @@ export default function App() {
         <RestoreScroll />
         <Routes>
           <Route path="/" element={<LandingPage />} />
-          <Route
-            path="/editor"
-            element={
-              <ThemedPage>
-                <Editor />
-              </ThemedPage>
-            }
-          />
-          <Route
-            path="/survey"
-            element={
-              <ThemedPage>
-                <Survey />
-              </ThemedPage>
-            }
-          />
-          <Route
-            path="/shortcuts"
-            element={
-              <ThemedPage>
-                <Shortcuts />
-              </ThemedPage>
-            }
-          />
-          <Route
-            path="/bug-report"
-            element={
-              <ThemedPage>
-                <BugReport />
-              </ThemedPage>
-            }
-          />
+          <Route path="/editor" element={<Editor />} />
+          <Route path="/editor/diagrams/:id" element={<Editor />} />
+          <Route path="/editor/templates/:id" element={<Editor />} />
+          <Route path="/bug-report" element={<BugReport />} />
           <Route path="/templates" element={<Templates />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </SettingsContextProvider>
   );
-}
-
-function ThemedPage({ children }) {
-  const { setSettings } = useSettings();
-
-  useLayoutEffect(() => {
-    const theme = localStorage.getItem("theme");
-    if (theme === "dark") {
-      setSettings((prev) => ({ ...prev, mode: "dark" }));
-      const body = document.body;
-      if (body.hasAttribute("theme-mode")) {
-        body.setAttribute("theme-mode", "dark");
-      }
-    } else {
-      setSettings((prev) => ({ ...prev, mode: "light" }));
-      const body = document.body;
-      if (body.hasAttribute("theme-mode")) {
-        body.setAttribute("theme-mode", "light");
-      }
-    }
-  }, [setSettings]);
-
-  return children;
 }
 
 function RestoreScroll() {

@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { Cardinality, ObjectType, Tab } from "../../data/constants";
 import { calcPath } from "../../utils/calcPath";
 import { useDiagram, useSettings, useLayout, useSelect } from "../../hooks";
@@ -6,13 +6,38 @@ import { useTranslation } from "react-i18next";
 import { SideSheet } from "@douyinfe/semi-ui";
 import RelationshipInfo from "../EditorSidePanel/RelationshipsTab/RelationshipInfo";
 
+const labelFontSize = 16;
+
 export default function Relationship({ data }) {
   const { settings } = useSettings();
   const { tables } = useDiagram();
   const { layout } = useLayout();
   const { selectedElement, setSelectedElement } = useSelect();
   const { t } = useTranslation();
+
+  const pathValues = useMemo(() => {
+    const startTable = tables.find((t) => t.id === data.startTableId);
+    const endTable = tables.find((t) => t.id === data.endTableId);
+
+    if (!startTable || !endTable || startTable.hidden || endTable.hidden)
+      return null;
+
+    return {
+      startFieldIndex: startTable.fields.findIndex(
+        (f) => f.id === data.startFieldId,
+      ),
+      endFieldIndex: endTable.fields.findIndex((f) => f.id === data.endFieldId),
+      startTable: {
+        x: startTable.x,
+        y: startTable.y,
+        comment: startTable.comment,
+      },
+      endTable: { x: endTable.x, y: endTable.y, comment: endTable.comment },
+    };
+  }, [tables, data]);
+
   const pathRef = useRef();
+  const labelRef = useRef();
 
   let cardinalityStart = "1";
   let cardinalityEnd = "1";
@@ -21,13 +46,13 @@ export default function Relationship({ data }) {
     // the translated values are to ensure backwards compatibility
     case t(Cardinality.MANY_TO_ONE):
     case Cardinality.MANY_TO_ONE:
-      cardinalityStart = "n";
+      cardinalityStart = data.manyLabel || "n";
       cardinalityEnd = "1";
       break;
     case t(Cardinality.ONE_TO_MANY):
     case Cardinality.ONE_TO_MANY:
       cardinalityStart = "1";
-      cardinalityEnd = "n";
+      cardinalityEnd = data.manyLabel || "n";
       break;
     case t(Cardinality.ONE_TO_ONE):
     case Cardinality.ONE_TO_ONE:
@@ -42,11 +67,21 @@ export default function Relationship({ data }) {
   let cardinalityEndX = 0;
   let cardinalityStartY = 0;
   let cardinalityEndY = 0;
+  let labelX = 0;
+  let labelY = 0;
+
+  let labelWidth = labelRef.current?.getBBox().width ?? 0;
+  let labelHeight = labelRef.current?.getBBox().height ?? 0;
 
   const cardinalityOffset = 28;
 
   if (pathRef.current) {
     const pathLength = pathRef.current.getTotalLength();
+
+    const labelPoint = pathRef.current.getPointAtLength(pathLength / 2);
+    labelX = labelPoint.x - (labelWidth ?? 0) / 2;
+    labelY = labelPoint.y + (labelHeight ?? 0) / 2;
+
     const point1 = pathRef.current.getPointAtLength(cardinalityOffset);
     cardinalityStartX = point1.x;
     cardinalityStartY = point1.y;
@@ -80,67 +115,51 @@ export default function Relationship({ data }) {
     }
   };
 
+  if (!pathValues) return null;
+
   return (
     <>
       <g className="select-none group" onDoubleClick={edit}>
+        {/* invisible wider path for better hover ux */}
         <path
-          ref={pathRef}
-          d={calcPath(
-            {
-              ...data,
-              startTable: {
-                x: tables[data.startTableId].x,
-                y: tables[data.startTableId].y,
-              },
-              endTable: {
-                x: tables[data.endTableId].x,
-                y: tables[data.endTableId].y,
-              },
-            },
-            settings.tableWidth,
-          )}
-          stroke="gray"
-          className="group-hover:stroke-sky-700"
+          d={calcPath(pathValues, settings.tableWidth, 1, settings.showComments)}
           fill="none"
-          strokeWidth={2}
+          stroke="transparent"
+          strokeWidth={12}
           cursor="pointer"
         />
+        <path
+          ref={pathRef}
+          d={calcPath(pathValues, settings.tableWidth, 1, settings.showComments)}
+          className="relationship-path"
+          fill="none"
+          cursor="pointer"
+        />
+        {settings.showRelationshipLabels && (
+          <text
+            x={labelX}
+            y={labelY}
+            fill={settings.mode === "dark" ? "lightgrey" : "#333"}
+            fontSize={labelFontSize}
+            fontWeight={500}
+            ref={labelRef}
+            className="group-hover:fill-sky-600"
+          >
+            {data.name}
+          </text>
+        )}
         {pathRef.current && settings.showCardinality && (
           <>
-            <circle
-              cx={cardinalityStartX}
-              cy={cardinalityStartY}
-              r="12"
-              fill="grey"
-              className="group-hover:fill-sky-700"
-            />
-            <text
+            <CardinalityLabel
               x={cardinalityStartX}
               y={cardinalityStartY}
-              fill="white"
-              strokeWidth="0.5"
-              textAnchor="middle"
-              alignmentBaseline="middle"
-            >
-              {cardinalityStart}
-            </text>
-            <circle
-              cx={cardinalityEndX}
-              cy={cardinalityEndY}
-              r="12"
-              fill="grey"
-              className="group-hover:fill-sky-700"
+              text={cardinalityStart}
             />
-            <text
+            <CardinalityLabel
               x={cardinalityEndX}
               y={cardinalityEndY}
-              fill="white"
-              strokeWidth="0.5"
-              textAnchor="middle"
-              alignmentBaseline="middle"
-            >
-              {cardinalityEnd}
-            </text>
+              text={cardinalityEnd}
+            />
           </>
         )}
       </g>
@@ -166,5 +185,43 @@ export default function Relationship({ data }) {
         </div>
       </SideSheet>
     </>
+  );
+}
+
+function CardinalityLabel({ x, y, text, r = 12, padding = 14 }) {
+  const [textWidth, setTextWidth] = useState(0);
+  const textRef = useRef(null);
+
+  useEffect(() => {
+    if (textRef.current) {
+      const bbox = textRef.current.getBBox();
+      setTextWidth(bbox.width);
+    }
+  }, [text]);
+
+  return (
+    <g>
+      <rect
+        x={x - textWidth / 2 - padding / 2}
+        y={y - r}
+        rx={r}
+        ry={r}
+        width={textWidth + padding}
+        height={r * 2}
+        fill="grey"
+        className="group-hover:fill-sky-600"
+      />
+      <text
+        ref={textRef}
+        x={x}
+        y={y}
+        fill="white"
+        strokeWidth="0.5"
+        textAnchor="middle"
+        alignmentBaseline="middle"
+      >
+        {text}
+      </text>
+    </g>
   );
 }

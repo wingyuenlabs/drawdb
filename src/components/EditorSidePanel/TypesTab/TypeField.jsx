@@ -11,13 +11,21 @@ import {
   Popover,
 } from "@douyinfe/semi-ui";
 import { IconDeleteStroked, IconMore } from "@douyinfe/semi-icons";
-import { useUndoRedo, useTypes, useDiagram, useEnums } from "../../../hooks";
+import {
+  useUndoRedo,
+  useTypes,
+  useDiagram,
+  useEnums,
+  useLayout,
+} from "../../../hooks";
 import { useTranslation } from "react-i18next";
 import { dbToTypes } from "../../../data/datatypes";
+import { getCustomTypesForDb, resolveType } from "../../../utils/customTypes";
 
 export default function TypeField({ data, tid, fid }) {
   const { types, updateType } = useTypes();
   const { enums } = useEnums();
+  const { layout } = useLayout();
   const { database } = useDiagram();
   const { setUndoStack, setRedoStack } = useUndoRedo();
   const [editField, setEditField] = useState({});
@@ -28,6 +36,7 @@ export default function TypeField({ data, tid, fid }) {
       <Col span={10}>
         <Input
           value={data.name}
+          readonly={layout.readOnly}
           validateStatus={data.name === "" ? "error" : "default"}
           placeholder={t("name")}
           onChange={(value) =>
@@ -68,9 +77,13 @@ export default function TypeField({ data, tid, fid }) {
               label: value,
               value: value,
             })),
+            ...Object.keys(getCustomTypesForDb(database)).map((value) => ({
+              label: value,
+              value,
+            })),
             ...types
               .filter(
-                (type) => type.name.toLowerCase() !== data.name.toLowerCase(),
+                (type) => type.name.toLowerCase() !== types[tid].name.toLowerCase(),
               )
               .map((type) => ({
                 label: type.name.toUpperCase(),
@@ -86,6 +99,7 @@ export default function TypeField({ data, tid, fid }) {
           validateStatus={data.type === "" ? "error" : "default"}
           placeholder={t("type")}
           onChange={(value) => {
+            if (layout.readOnly) return;
             if (value === data.type) return;
             setUndoStack((prev) => [
               ...prev,
@@ -117,8 +131,8 @@ export default function TypeField({ data, tid, fid }) {
                 ),
               });
             } else if (
-              dbToTypes[database][value].isSized ||
-              dbToTypes[database][value].hasPrecision
+              resolveType(database, value).isSized ||
+              resolveType(database, value).hasPrecision
             ) {
               updateType(tid, {
                 fields: types[tid].fields.map((e, id) =>
@@ -126,7 +140,7 @@ export default function TypeField({ data, tid, fid }) {
                     ? {
                         ...data,
                         type: value,
-                        size: dbToTypes[database][value].defaultSize,
+                        size: resolveType(database, value).defaultSize,
                       }
                     : e,
                 ),
@@ -160,13 +174,14 @@ export default function TypeField({ data, tid, fid }) {
                     }
                     className="my-2"
                     placeholder={t("use_for_batch_input")}
-                    onChange={(v) =>
+                    onChange={(v) => {
+                      if (layout.readOnly) return;
                       updateType(tid, {
                         fields: types[tid].fields.map((e, id) =>
                           id === fid ? { ...data, values: v } : e,
                         ),
-                      })
-                    }
+                      });
+                    }}
                     onFocus={() => setEditField({ values: data.values })}
                     onBlur={() => {
                       if (
@@ -195,13 +210,14 @@ export default function TypeField({ data, tid, fid }) {
                   />
                 </>
               )}
-              {dbToTypes[database][data.type].isSized && (
+              {resolveType(database, data.type).isSized && (
                 <>
                   <div className="font-semibold">{t("size")}</div>
                   <InputNumber
                     className="my-2 w-full"
                     placeholder={t("size")}
                     value={data.size}
+                    readonly={layout.readOnly}
                     onChange={(value) =>
                       updateType(tid, {
                         fields: types[tid].fields.map((e, id) =>
@@ -233,12 +249,13 @@ export default function TypeField({ data, tid, fid }) {
                   />
                 </>
               )}
-              {dbToTypes[database][data.type].hasPrecision && (
+              {resolveType(database, data.type).hasPrecision && (
                 <>
                   <div className="font-semibold">{t("precision")}</div>
                   <Input
                     className="my-2 w-full"
                     placeholder={t("set_precision")}
+                    readonly={layout.readOnly}
                     validateStatus={
                       /^\(\d+,\s*\d+\)$|^$/.test(data.size)
                         ? "default"
@@ -277,9 +294,10 @@ export default function TypeField({ data, tid, fid }) {
                 </>
               )}
               <Button
-                icon={<IconDeleteStroked />}
                 block
                 type="danger"
+                disabled={layout.readOnly}
+                icon={<IconDeleteStroked />}
                 onClick={() => {
                   setUndoStack((prev) => [
                     ...prev,

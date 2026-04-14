@@ -12,6 +12,8 @@ import { fa, persian } from "./locales/fa";
 import { hi, hindi } from "./locales/hi";
 import { uk, ukrainian } from "./locales/uk";
 import { ru, russian } from "./locales/ru";
+import { el, greek } from "./locales/el";
+import { ro, romanian } from "./locales/ro";
 import { tr, turkish } from "./locales/tr";
 import { mr, marathi } from "./locales/mr";
 import { fr, french } from "./locales/fr";
@@ -30,9 +32,31 @@ import { ko, korean } from "./locales/ko";
 import { od, odia } from "./locales/od";
 import { bn, bengali } from "./locales/bn";
 import { ka, kannada } from "./locales/ka";
+import { pl, polish } from "./locales/pl";
+import { no, norwegian } from "./locales/no";
+import { sv, swedish } from "./locales/sv-se";
+import { ur, urdu } from "./locales/ur";
+import { jp, japanese } from "./locales/jp";
+import { ne, nepali } from "./locales/ne";
+import { ug, uyghur } from "./locales/ug";
+import { pa_pk, punjabipk } from "./locales/pa-pk";
+import { cz, czech } from "./locales/cz";
+import { ml, malayalam } from "./locales/ml";
+import { nl, dutch } from "./locales/nl";
+import { sd, sindhi } from "./locales/sd";
+import { th, thai } from "./locales/th";
+import { as, assamese } from "./locales/as";
+import { bg, bulgarian } from "./locales/bg";
+import { ms, malay } from "./locales/ms";
+import { mn, mongolian } from "./locales/mn";
+import { tl,filipino } from "./locales/tl";
+import { sw, swahili } from "./locales/sw";
+import { fi, finnish } from "./locales/fi";
+
 
 export const languages = [
   english,
+  bulgarian,
   chinese,
   danish,
   spanish,
@@ -41,9 +65,12 @@ export const languages = [
   portuguese,
   persian,
   hindi,
+  assamese,
   marathi,
+  greek,
   ukrainian,
   russian,
+  romanian,
   turkish,
   french,
   punjabi,
@@ -60,7 +87,25 @@ export const languages = [
   korean,
   odia,
   bengali,
-  kannada
+  kannada,
+  polish,
+  norwegian,
+  swedish,
+  urdu,
+  japanese,
+  nepali,
+  uyghur,
+  punjabipk,
+  czech,
+  malayalam,
+  dutch,
+  sindhi,
+  thai,
+  malay,
+  mongolian,
+  filipino,
+  swahili,
+  finnish,
 ].sort((a, b) => a.name.localeCompare(b.name));
 
 i18n
@@ -85,6 +130,8 @@ i18n
       mr,
       uk,
       ru,
+      el,
+      ro,
       tr,
       fr,
       pa,
@@ -101,7 +148,27 @@ i18n
       ko,
       od,
       bn,
-      ka
+      ka,
+      pl,
+      no,
+      sv,
+      ur,
+      jp,
+      ne,
+      ug,
+      "pa-PK": pa_pk,
+      cz,
+      ml,
+      nl,
+      sd,
+      th,
+      as,
+      bg,
+      ms,
+      mn,
+      tl,
+      sw,
+      fi,
     },
   });
 

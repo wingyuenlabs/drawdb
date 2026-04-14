@@ -1,16 +1,17 @@
 import { InputNumber } from "@douyinfe/semi-ui";
-import { useSettings } from "../../../hooks";
+import { useLayout } from "../../../hooks";
 
-export default function SetTableWidth() {
-  const { settings, setSettings } = useSettings();
+export default function SetTableWidth({ tempWidth, setTempWidth }) {
+  const { layout } = useLayout();
 
   return (
     <InputNumber
       className="w-full"
-      value={settings.tableWidth}
+      value={tempWidth}
+      readonly={layout.readOnly}
       onChange={(c) => {
         if (c < 180) return;
-        setSettings((prev) => ({ ...prev, tableWidth: c }));
+        setTempWidth(c);
       }}
     />
   );

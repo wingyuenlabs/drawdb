@@ -1,4 +1,4 @@
-import { Button, Input, Spin, Toast } from "@douyinfe/semi-ui";
+import { Banner, Button, Input, Spin, Toast } from "@douyinfe/semi-ui";
 import { useCallback, useContext, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { IdContext } from "../../Workspace";
@@ -12,9 +12,11 @@ import {
   useTypes,
 } from "../../../hooks";
 import { databases } from "../../../data/databases";
-import { octokit } from "../../../data/octokit";
+import { MODAL } from "../../../data/constants";
+import { create, patch, SHARE_FILENAME } from "../../../api/gists";
+import { getCustomTypes } from "../../../utils/customTypes";
 
-export default function Share({ title }) {
+export default function Share({ title, setModal }) {
   const { t } = useTranslation();
   const { gistId, setGistId } = useContext(IdContext);
   const [loading, setLoading] = useState(true);
@@ -24,11 +26,27 @@ export default function Share({ title }) {
   const { types } = useTypes();
   const { enums } = useEnums();
   const { transform } = useTransform();
-  const url =
-    window.location.origin + window.location.pathname + "?shareId=" + gistId;
+  const [error, setError] = useState(null);
+  const url = window.location.origin + "/editor?shareId=" + gistId;
 
   const diagramToString = useCallback(() => {
+    const allCustomTypes = getCustomTypes();
+    const usedFieldTypes = new Set(
+      tables.flatMap((t) => t.fields.map((f) => f.type.toUpperCase())),
+    );
+    const usedCustomTypes = {};
+    for (const [db, types] of Object.entries(allCustomTypes)) {
+      for (const [name, entry] of Object.entries(types)) {
+        if (usedFieldTypes.has(name)) {
+          if (!usedCustomTypes[db]) usedCustomTypes[db] = {};
+          usedCustomTypes[db][name] = entry;
+        }
+      }
+    }
+    const hasCustomTypes = Object.keys(usedCustomTypes).length > 0;
+
     return JSON.stringify({
+      title,
       tables: tables,
       relationships: relationships,
       notes: notes,
@@ -36,7 +54,7 @@ export default function Share({ title }) {
       database: database,
       ...(databases[database].hasTypes && { types: types }),
       ...(databases[database].hasEnums && { enums: enums }),
-      title: title,
+      ...(hasCustomTypes && { customTypes: usedCustomTypes }),
       transform: transform,
     });
   }, [
@@ -51,67 +69,38 @@ export default function Share({ title }) {
     transform,
   ]);
 
-  const updateGist = useCallback(async () => {
-    setLoading(true);
+  const unshare = useCallback(async () => {
     try {
-      await octokit.request(`PATCH /gists/${gistId}`, {
-        gist_id: gistId,
-        description: "drawDB diagram",
-        files: {
-          "share.json": {
-            content: diagramToString(),
-          },
-        },
-        headers: {
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-      });
+      const deleted = await patch(gistId, SHARE_FILENAME, undefined);
+      if (deleted) {
+        setGistId("");
+      }
+      setModal(MODAL.NONE);
     } catch (e) {
       console.error(e);
-    } finally {
-      setLoading(false);
+      setError(e);
     }
-  }, [gistId, diagramToString]);
-
-  const generateLink = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await octokit.request("POST /gists", {
-        description: "drawDB diagram",
-        public: false,
-        files: {
-          "share.json": {
-            content: diagramToString(),
-          },
-        },
-        headers: {
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-      });
-      setGistId(res.data.id);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, [setGistId, diagramToString]);
+  }, [gistId, setModal, setGistId]);
 
   useEffect(() => {
     const updateOrGenerateLink = async () => {
       try {
+        setLoading(true);
         if (!gistId || gistId === "") {
-          await generateLink();
+          const id = await create(SHARE_FILENAME, diagramToString());
+          setGistId(id);
         } else {
-          await updateGist();
+          await patch(gistId, SHARE_FILENAME, diagramToString());
         }
       } catch (e) {
-        console.error(e);
+        setError(e);
       } finally {
         setLoading(false);
       }
     };
     updateOrGenerateLink();
-  }, [gistId, generateLink, updateGist]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const copyLink = () => {
     navigator.clipboard
@@ -134,19 +123,30 @@ export default function Share({ title }) {
 
   return (
     <div>
-      <div className="flex gap-3">
-        <Input value={url} size="large" />
-        <Button
-          size="large"
-          theme="solid"
-          icon={<IconLink />}
-          onClick={copyLink}
-        >
-          {t("copy_link")}
-        </Button>
-      </div>
-      <hr className="opacity-20 mt-3 mb-1" />
-      <div className="text-xs">{t("share_info")}</div>
+      {error && (
+        <Banner
+          description={t("oops_smth_went_wrong")}
+          type="danger"
+          closeIcon={null}
+          fullMode={false}
+        />
+      )}
+      {!error && (
+        <>
+          <div className="flex gap-3">
+            <Input value={url} size="large" readonly />
+          </div>
+          <div className="text-xs mt-2">{t("share_info")}</div>
+          <div className="flex gap-2 mt-3">
+            <Button block onClick={unshare}>
+              {t("unshare")}
+            </Button>
+            <Button block theme="solid" icon={<IconLink />} onClick={copyLink}>
+              {t("copy_link")}
+            </Button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

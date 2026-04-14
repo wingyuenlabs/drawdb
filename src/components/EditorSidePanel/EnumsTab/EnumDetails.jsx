@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Button, Input, TagInput } from "@douyinfe/semi-ui";
 import { IconDeleteStroked } from "@douyinfe/semi-icons";
-import { useDiagram, useEnums, useUndoRedo } from "../../../hooks";
+import { useDiagram, useEnums, useLayout, useUndoRedo } from "../../../hooks";
 import { Action, ObjectType } from "../../../data/constants";
 import { useTranslation } from "react-i18next";
 
-export default function EnumDetails({ data, i }) {
+export default function EnumDetails({ data }) {
   const { t } = useTranslation();
+  const { layout } = useLayout();
   const { deleteEnum, updateEnum } = useEnums();
   const { tables, updateField } = useDiagram();
   const { setUndoStack, setRedoStack } = useUndoRedo();
@@ -18,14 +19,17 @@ export default function EnumDetails({ data, i }) {
         <div className="font-semibold">{t("Name")}: </div>
         <Input
           value={data.name}
+          readonly={layout.readOnly}
           placeholder={t("name")}
           validateStatus={data.name.trim() === "" ? "error" : "default"}
           onChange={(value) => {
-            updateEnum(i, { name: value });
-            tables.forEach((table, i) => {
-              table.fields.forEach((field, j) => {
+            updateEnum(data.id, { name: value });
+            tables.forEach((table) => {
+              table.fields.forEach((field) => {
                 if (field.type.toLowerCase() === data.name.toLowerCase()) {
-                  updateField(i, j, { type: value.toUpperCase() });
+                  updateField(table.id, field.id, {
+                    type: value.toUpperCase(),
+                  });
                 }
               });
             });
@@ -48,7 +52,7 @@ export default function EnumDetails({ data, i }) {
               {
                 action: Action.EDIT,
                 element: ObjectType.ENUM,
-                id: i,
+                id: data.id,
                 undo: editField,
                 redo: { name: e.target.value },
                 updatedFields,
@@ -69,7 +73,10 @@ export default function EnumDetails({ data, i }) {
         className="my-2"
         placeholder={t("values")}
         validateStatus={data.values.length === 0 ? "error" : "default"}
-        onChange={(v) => updateEnum(i, { values: v })}
+        onChange={(v) => {
+          if (layout.readOnly) return;
+          updateEnum(data.id, { values: v });
+        }}
         onFocus={() => setEditField({ values: data.values })}
         onBlur={() => {
           if (JSON.stringify(editField.values) === JSON.stringify(data.values))
@@ -79,7 +86,7 @@ export default function EnumDetails({ data, i }) {
             {
               action: Action.EDIT,
               element: ObjectType.ENUM,
-              id: i,
+              id: data.id,
               undo: editField,
               redo: { values: data.values },
               message: t("edit_enum", {
@@ -93,9 +100,10 @@ export default function EnumDetails({ data, i }) {
       />
       <Button
         block
-        icon={<IconDeleteStroked />}
         type="danger"
-        onClick={() => deleteEnum(i, true)}
+        icon={<IconDeleteStroked />}
+        disabled={layout.readOnly}
+        onClick={() => deleteEnum(data.id, true)}
       >
         {t("delete")}
       </Button>

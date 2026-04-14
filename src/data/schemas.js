@@ -1,7 +1,7 @@
 export const tableSchema = {
   type: "object",
   properties: {
-    id: { type: "integer" },
+    id: { type: ["integer", "string"] },
     name: { type: "string" },
     x: { type: "number" },
     y: { type: "number" },
@@ -10,9 +10,10 @@ export const tableSchema = {
       items: {
         type: "object",
         properties: {
+          id: { type: ["integer", "string"] },
           name: { type: "string" },
           type: { type: "string" },
-          default: { type: "string" },
+          default: { type: ["string", "number", "boolean"] },
           check: { type: "string" },
           primary: { type: "boolean" },
           unique: { type: "boolean" },
@@ -23,6 +24,7 @@ export const tableSchema = {
           values: { type: "array", items: { type: "string" } },
         },
         required: [
+          "id",
           "name",
           "type",
           "default",
@@ -36,6 +38,8 @@ export const tableSchema = {
       },
     },
     comment: { type: "string" },
+    locked: { type: "boolean" },
+    hidden: { type: "boolean" },
     indices: {
       type: "array",
       items: {
@@ -52,6 +56,10 @@ export const tableSchema = {
       },
     },
     color: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
+    inherits: {
+      type: "array",
+      items: { type: ["string"] },
+    },
   },
   required: ["id", "name", "x", "y", "fields", "comment", "indices", "color"],
 };
@@ -65,6 +73,7 @@ export const areaSchema = {
     y: { type: "number" },
     width: { type: "number" },
     height: { type: "number" },
+    locked: { type: "boolean" },
     color: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
   },
   required: ["id", "name", "x", "y", "width", "height", "color"],
@@ -80,6 +89,8 @@ export const noteSchema = {
     content: { type: "string" },
     color: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
     height: { type: "number" },
+    width: { type: "number" },
+    locked: { type: "boolean" },
   },
   required: ["id", "x", "y", "title", "content", "color", "height"],
 };
@@ -87,12 +98,14 @@ export const noteSchema = {
 export const typeSchema = {
   type: "object",
   properties: {
+    id: { type: ["string"] },
     name: { type: "string" },
     fields: {
       type: "array",
       items: {
         type: "object",
         properties: {
+          id: { type: ["string"] },
           name: { type: "string" },
           type: { type: "string" },
           values: {
@@ -119,6 +132,15 @@ export const enumSchema = {
   },
 };
 
+export const customTypeEntrySchema = {
+  type: "object",
+  properties: {
+    type: { type: "string", minLength: 1 },
+    color: { type: "string" },
+  },
+  required: ["type", "color"],
+};
+
 export const jsonSchema = {
   type: "object",
   properties: {
@@ -131,15 +153,15 @@ export const jsonSchema = {
       items: {
         type: "object",
         properties: {
-          startTableId: { type: "integer" },
-          startFieldId: { type: "integer" },
-          endTableId: { type: "integer" },
-          endFieldId: { type: "integer" },
+          startTableId: { type: ["integer", "string"] },
+          startFieldId: { type: ["integer", "string"] },
+          endTableId: { type: ["integer", "string"] },
+          endFieldId: { type: ["integer", "string"] },
           name: { type: "string" },
           cardinality: { type: "string" },
           updateConstraint: { type: "string" },
           deleteConstraint: { type: "string" },
-          id: { type: "integer" },
+          id: { type: ["integer", "string"] },
         },
         required: [
           "startTableId",
@@ -174,6 +196,7 @@ export const jsonSchema = {
     database: { type: "string" },
   },
   required: ["tables", "relationships", "notes", "subjectAreas"],
+  additionalProperties: true,
 };
 
 export const ddbSchema = {

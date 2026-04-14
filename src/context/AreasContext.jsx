@@ -1,8 +1,8 @@
-import { createContext, useState } from "react";
-import { Action, ObjectType, defaultBlue } from "../data/constants";
-import { useUndoRedo, useTransform, useSelect } from "../hooks";
 import { Toast } from "@douyinfe/semi-ui";
+import { createContext, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Action, ObjectType, defaultBlue } from "../data/constants";
+import { useSelect, useTransform, useUndoRedo } from "../hooks";
 
 export const AreasContext = createContext(null);
 
@@ -33,6 +33,7 @@ export default function AreasContextProvider({ children }) {
           width,
           height,
           color: defaultBlue,
+          locked: false,
         },
       ]);
     }
@@ -58,7 +59,7 @@ export default function AreasContextProvider({ children }) {
           action: Action.DELETE,
           element: ObjectType.AREA,
           data: areas[id],
-          message: t("delete_area", areas[id].name),
+          message: t("delete_area", { areaName: areas[id].name }),
         },
       ]);
       setRedoStack([]);
@@ -92,7 +93,14 @@ export default function AreasContextProvider({ children }) {
 
   return (
     <AreasContext.Provider
-      value={{ areas, setAreas, updateArea, addArea, deleteArea }}
+      value={{
+        areas,
+        setAreas,
+        updateArea,
+        addArea,
+        deleteArea,
+        areasCount: areas.length,
+      }}
     >
       {children}
     </AreasContext.Provider>
