@@ -116,6 +116,7 @@ export default function ControlPanel({ title, setTitle, lastSaved }) {
     addRelationship,
     deleteRelationship,
     updateRelationship,
+    autoArrangeTables,
     database,
   } = useDiagram();
   const { enums, setEnums, deleteEnum, addEnum, updateEnum } = useEnums();
@@ -250,6 +251,10 @@ export default function ControlPanel({ title, setTitle, lastSaved }) {
           });
         } else if (a.component === "self") {
           updateTable(a.tid, a.undo);
+        } else if (a.component === "auto_arrange") {
+          a.data.oldTables.forEach((oldtable) => {
+            updateTable(oldtable.id, {x: oldtable.x, y: oldtable.y});
+          });
         }
       } else if (a.element === ObjectType.RELATIONSHIP) {
         updateRelationship(a.rid, a.undo);
@@ -431,6 +436,10 @@ export default function ControlPanel({ title, setTitle, lastSaved }) {
           });
         } else if (a.component === "self") {
           updateTable(a.tid, a.redo, false);
+        } else if (a.component === "auto_arrange") {
+          a.data.newTables.forEach((newtable) => {
+            updateTable(newtable.id, { x: newtable.x, y: newtable.y });
+          });
         }
       } else if (a.element === ObjectType.RELATIONSHIP) {
         updateRelationship(a.rid, a.redo);
@@ -1742,6 +1751,14 @@ export default function ControlPanel({ title, setTitle, lastSaved }) {
               <IconAddNote />
             </button>
           </Tooltip>
+          <Tooltip content={t("auto_arrange")} position="bottom">
+            <button
+              className="py-1 px-2 hover-2 rounded-sm text-xl -mt-0.5"
+              onClick={autoArrangeTables}
+            >
+              <i className="fa-solid fa-table-cells" />
+            </button>
+          </Tooltip>          
           <Divider layout="vertical" margin="8px" />
           <Tooltip content={t("save")} position="bottom">
             <button

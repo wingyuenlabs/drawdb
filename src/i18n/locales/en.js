@@ -94,6 +94,7 @@ const en = {
     add_table: "Add table",
     add_area: "Add area",
     add_note: "Add note",
+    auto_arrange: "Auto arrange tables",
     add_type: "Add type",
     tables: "Tables",
     relationships: "Relationships",

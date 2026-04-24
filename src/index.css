@@ -232,3 +232,8 @@
   animation: dash-right 1s linear infinite;
   
 }
+
+.table-container {
+  transition: transform 0.5s ease-in-out;
+  /* Use transform: translate(x, y) instead of top/left for better performance */
+}
